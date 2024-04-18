@@ -1,2 +1,0 @@
-rm myCA.*
-rm localhost.*
