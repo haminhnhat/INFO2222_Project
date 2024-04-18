@@ -8,6 +8,7 @@ To setup, install these packages
 
 ```bash
 pip install SQLAlchemy flask-socketio simple-websocket
+pip install -r requirements.txt
 ```
 
 # Running the App
