@@ -10,13 +10,19 @@ Prisma docs also looks so much better in comparison
 or use SQLite, if you're not into fancy ORMs (but be mindful of Injection attacks :) )
 '''
 
-from sqlalchemy import String
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from typing import Dict
+import datetime
+from sqlalchemy import DateTime, String, Table, Column, ForeignKey, Integer, CheckConstraint
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from typing import Dict, Text
 
 # data models
 class Base(DeclarativeBase):
     pass
+
+friendship_association = Table('friendship', Base.metadata,
+    Column('user_id', String, ForeignKey('user.username'), primary_key=True),
+    Column('friend_id', String, ForeignKey('user.username'), primary_key=True)
+)
 
 # model to store user information
 class User(Base):
@@ -29,7 +35,11 @@ class User(Base):
     # in other words we've mapped the username Python object property to an SQL column of type String 
     username: Mapped[str] = mapped_column(String, primary_key=True)
     password: Mapped[str] = mapped_column(String)
-    
+    friends = relationship("User",
+                           secondary=friendship_association,
+                           primaryjoin=username == friendship_association.c.user_id,
+                           secondaryjoin=username == friendship_association.c.friend_id,
+                           backref="added_friends")
 
 # stateful counter used to generate the room id
 class Counter():
@@ -69,3 +79,28 @@ class Room():
             return None
         return self.dict[user]
     
+class FriendRequest(Base):
+    __tablename__ = 'friend_request'
+    id = Column(Integer, primary_key=True)
+    sender_username = Column(String, ForeignKey('user.username'), nullable=False)
+    receiver_username = Column(String, ForeignKey('user.username'), nullable=False)
+    status = Column(String, default="pending")  # Default status is 'pending'
+
+    # Enforce that status is one of 'pending', 'accepted', 'rejected'
+    __table_args__ = (
+        CheckConstraint(status.in_(['pending', 'accepted', 'rejected'])),
+    )
+    
+    sender = relationship("User", foreign_keys=[sender_username], backref="sent_requests")
+    receiver = relationship("User", foreign_keys=[receiver_username], backref="received_requests")
+    
+# class Message(Base):
+#     __tablename__ = 'message'
+#     id = Column(Integer, primary_key=True)
+#     sender_id = Column(Integer, ForeignKey('user.id'))
+#     receiver_id = Column(Integer, ForeignKey('user.id'))
+#     content = Column(Text, nullable=False)
+#     timestamp = Column(DateTime, default=datetime.utcnow)
+
+#     sender = relationship("User", foreign_keys=[sender_id])
+#     receiver = relationship("User", foreign_keys=[receiver_id])
