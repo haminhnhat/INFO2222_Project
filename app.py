@@ -179,4 +179,4 @@ def get_public_key(username):
 
 if __name__ == '__main__':
     ssl_context = ('certificate/localhost.crt', 'certificate/localhost.key')
-    socketio.run(app, host='127.0.0.1', port=5001, debug=True, ssl_context = ssl_context)
+    socketio.run(app, host='127.0.0.1', port=5001, debug=True, ssl_context = ssl_context, allow_unsafe_werkzeug=True)
