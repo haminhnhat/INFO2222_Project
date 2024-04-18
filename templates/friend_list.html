@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ username }}'s Friend List and Friend Requests</title>
+</head>
+<body>
+    <h1>{{ username }}'s Friend List</h1>
+    <ul>
+        {% for friend_username in friends %}
+            <li><a href="/chat/{{ friend_username }}">{{ friend_username }}</a></li>
+        {% endfor %}
+    </ul>
+
+    <!-- Logout Link -->
+    <a href="{{ url_for('logout') }}">Logout</a>
+    
+    <!-- Add Friend Form Begins Here -->
+    <section>
+        <h2>Send a friend request to</h2>
+        <form action="/send_friend_request" method="post">
+            <input type="hidden" name="username1" value="{{ username }}">
+            <label for="friend_username">Friend's Username:</label>
+            <input type="text" id="friend_username" name="username2" required>
+            <input type="submit" value="Add Friend">
+        </form>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </section>
+    
+    <!-- Incoming Friend Requests Section -->
+    <h2>Incoming Friend Requests</h2>
+    {% if requests %}
+        <ul>
+            {% for request in requests %}
+                <li>
+                    {{ request.sender_username }} wants to be friends.
+                    <form action="/accept_friend_request/{{ request.id }}" method="post">
+                        <button type="submit">Accept</button>
+                    </form>
+                    <form action="/reject_friend_request/{{ request.id }}" method="post">
+                        <button type="submit">Reject</button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No incoming friend requests.</p>
+    {% endif %}
+</body>
+</html>

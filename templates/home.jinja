@@ -1,0 +1,132 @@
+<!-- 
+    Here you'll find the main exhibit: the chat application code. Feel free to look around!
+-->
+{% extends 'base.jinja' %}
+
+{% block content %}
+<style>
+    nav {
+        border-bottom: 1px solid black;
+        overflow: auto;
+    }
+
+    #message_box {
+        border: 1px solid black;
+        height: 400px;
+        width: 800px;
+        overflow: auto;
+        padding: 2px;
+    }
+
+    .text {
+        margin-top: 2px;
+        margin-bottom: 2px;
+    }
+</style>
+
+<!-- Navbar, showing the username -->
+<nav>
+    <ol style="float: right">
+        <li style="display:inline-block">Username: {{ username }}</li>
+    </ol>
+</nav>
+
+<h1>Messaging App</h1>
+
+<main>
+    <!-- Messages are displayed here -->
+    <section id="message_box"></section>
+
+    <!-- Message input box -->
+    <section id="input_box">
+        <p class="text">Message:</p>
+        <input id="message" placeholder="Type a message...">
+        <button onclick="send()">Send</button>
+        <button onclick="leave()">Leave Room</button>
+    </section>
+</main>
+
+<script src="/static/js/libs/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<script>
+    let room_id = 0;
+    let username = "{{ username }}";
+    let friend_username = "{{ friend_username }}"; // Automatically join chat with this friend
+    const socket = io(); // Initialize the socket
+    // Function to handle sending messages
+    function send() {
+        let message = document.getElementById("message").value;
+        document.getElementById("message").value = ''; // Clear the input after sending
+        const encryptedMessage = CryptoJS.AES.encrypt(message, 'secret key 123').toString();
+        const hmac = CryptoJS.HmacSHA256(encryptedMessage, 'secret key 123').toString();
+        socket.emit("send", username, JSON.stringify({encryptedMessage,hmac}), room_id);
+    }
+    
+    function decryptWithHMAC(encryptedHMAC, passphrase) {
+        try {
+            // Check the HMAC to verify the message
+            var encryptedHMAC_copy = (' ' + encryptedHMAC).slice(1);
+            encryptedHMAC = JSON.parse(encryptedHMAC);
+            const computedHmac = CryptoJS.HmacSHA256(encryptedHMAC['encryptedMessage'], passphrase).toString();
+            if (computedHmac !== encryptedHMAC['hmac']) {
+                console.error('Message authentication failed.');
+                return null;
+            }
+            // Decrypt the message if the HMAC is verified
+            const bytes = CryptoJS.AES.decrypt(encryptedHMAC['encryptedMessage'], passphrase);
+            const decryptedMessage = bytes.toString(CryptoJS.enc.Utf8);
+            if (!decryptedMessage) {
+                throw new Error('Decryption failed. Result is null.');
+            }
+            return decryptedMessage;
+        } catch (e) {
+            console.error("Decryption error:", e);
+            return null;
+        }
+    }    
+
+    // Automatically join the chat room when the page loads
+    document.addEventListener("DOMContentLoaded", () => {
+        if (friend_username) {
+            join_room();
+        }
+    });
+    // Join room function adjusted for automatic joining
+    function join_room() {
+        socket.emit("join", username, friend_username, (res) => {
+            if (typeof res !== "number") {
+                alert(res); // Show error if joining failed
+                return;
+            }
+            room_id = res; // Set the room ID
+            document.getElementById("input_box").style.display = 'block'; // Show message input box
+        });
+    }
+    // Leave the chat room
+    function leave() {
+        socket.emit("leave", username, room_id);
+        window.location.href = "/friend_list"; // Redirect back to the friend list
+    }
+    // Listen for incoming messages
+    socket.on("incoming", (data) => {
+        if (data.includes(": ")) {
+            const i = data.indexOf(": ");
+            let encryptedMessage = data.substring(i + 2);
+            var decryptedMessage = decryptWithHMAC(encryptedMessage, 'secret key 123');
+            let messageBox = document.getElementById("message_box");
+            let messageElement = document.createElement("p");
+            messageElement.textContent = data.substring(0, i + 2) + decryptedMessage;
+            messageBox.appendChild(messageElement);
+            messageBox.scrollTop = messageBox.scrollHeight; // Scroll to the bottom
+        } else {
+            let messageBox = document.getElementById("message_box");
+            let messageElement = document.createElement("p");
+            messageElement.textContent = data;
+            messageBox.appendChild(messageElement);
+            messageBox.scrollTop = messageBox.scrollHeight; 
+        }
+       
+    });
+</script>
+
+{% endblock %}
